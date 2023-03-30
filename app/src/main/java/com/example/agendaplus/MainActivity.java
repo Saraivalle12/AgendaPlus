@@ -37,5 +37,15 @@ public class MainActivity extends AppCompatActivity {
         //NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
 
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_CONTACTS},
+                1);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Si el permiso no ha sido otorgado, solicitarlo al usuario en tiempo de ejecución
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_CONTACTS},
+                    1);
+        } else {}
+
     }
 }

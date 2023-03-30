@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.telephony.SmsManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -69,6 +70,8 @@ public class HomeFragment extends Fragment {
         ArrayList<Contacto> lista = new ArrayList<>();
 
         lista.addAll(obtenerListaContactosDB());
+
+        lista.addAll(getContacts());
 
         for (Contacto obj : lista) {
             listaString.add(obj.getNombre() + " - " + obj.getTelefono());
@@ -147,6 +150,16 @@ public class HomeFragment extends Fragment {
         btnSms.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_PHONE_STATE)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    // Si el permiso no ha sido otorgado, solicitarlo al usuario en tiempo de ejecución
+                    ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.READ_PHONE_STATE},
+                            PERMISSIONS_REQUEST_CALL);
+                    return ;
+                } else {
+
+                }
+
                 if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.SEND_SMS)
                         != PackageManager.PERMISSION_GRANTED) {
                     // Si el permiso no ha sido otorgado, solicitarlo al usuario en tiempo de ejecución
@@ -166,8 +179,15 @@ public class HomeFragment extends Fragment {
                     SmsManager smsManager = SmsManager.getDefault();
 
                     try {
+                        if (message.trim().isEmpty()){
+                            Toast.makeText(getContext(), "Debe escribir un texto!", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                         // Enviar el mensaje
                         smsManager.sendTextMessage(phoneNumber, null, message, null, null);
+                        Toast.makeText(getContext(), "El mensaje fué enviado!", Toast.LENGTH_SHORT).show();
+
+                        edtMsg.setText("");
                     } catch (Exception e){
                         e.printStackTrace();
                         Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -235,12 +255,23 @@ public class HomeFragment extends Fragment {
                     }
                 }
 
-                Contacto contact = new Contacto();
-                contact.setId(Integer.valueOf(id));
-                contact.setNombre(name);
-                contact.setTelefono(phoneNumber);
-                contact.setImagen(Utiles.comprimir(photo));
-                contactList.add(contact);
+                boolean existe = false;
+
+                for (Contacto elemento : contactList){
+                    if (elemento.getNombre().equals(name)){
+                        existe = true;
+                        break;
+                    }
+                }
+                if (!existe){
+                    Contacto contact = new Contacto();
+                    contact.setId(Integer.valueOf(id));
+                    contact.setNombre(name);
+                    contact.setTelefono(phoneNumber);
+                    contact.setImagen(Utiles.comprimir(photo));
+
+                    contactList.add(contact);
+                }
 
             } while (cursor.moveToNext());
         }

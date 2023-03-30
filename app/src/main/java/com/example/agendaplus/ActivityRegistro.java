@@ -242,6 +242,8 @@ public class ActivityRegistro extends AppCompatActivity {
             }
         } else {
         }
+
+
     }
     private Usuario obtenerUsuario(long id) {
         SQLiteConexion conexion = new SQLiteConexion(this, Transacciones.NameDatabase, null, 1);

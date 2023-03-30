@@ -1,5 +1,7 @@
 package com.example.agendaplus.ui.agenda;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -9,7 +11,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -19,6 +23,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.agendaplus.ActivityContacto;
 import com.example.agendaplus.Contacto;
@@ -34,8 +40,8 @@ import java.util.ArrayList;
 public class AgendaFragment extends Fragment {
 
     private FragmentAgendaBinding binding;
-    private ListView listapersonas;
-    private ArrayList<Contacto> lista;
+    private RecyclerView listapersonas;
+    private static ArrayList<Contacto> lista = new ArrayList<>();
     private SQLiteConexion conexion;
 
     private int indice;
@@ -56,10 +62,39 @@ public class AgendaFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
-        ObtenerListaPersonas();
+        lista.clear();
 
-        CustomAdapter adapter = new CustomAdapter(getContext(), lista);
+        lista.addAll(ObtenerListaPersonas());
+        lista.addAll(getContacts());
+
+        CustomAdapter adapter = new CustomAdapter(getContext(), listapersonas, lista);
         listapersonas.setAdapter(adapter);
+
+        listapersonas.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+
+                View childView = rv.findChildViewUnder(e.getX(), e.getY());
+
+                if (childView != null) {
+                    if (childView != null) {
+                        int index = rv.getChildAdapterPosition(childView);
+                        indice = index;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+
+            }
+
+            @Override
+            public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+
+            }
+        });
     }
 
     @Override
@@ -70,29 +105,8 @@ public class AgendaFragment extends Fragment {
 
     private void iniciarProcedimiento_1(View root) {
         conexion = new SQLiteConexion(getContext(), Transacciones.NameDatabase, null, 1);
-        listapersonas = (ListView) root.findViewById(R.id.lista);
-
-        ObtenerListaPersonas();
-
-        CustomAdapter adapter = new CustomAdapter(getContext(), lista);
-        listapersonas.setAdapter(adapter);
-
-        listapersonas.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-
-                for (int i = 0; i < listapersonas.getChildCount(); i++) {
-                    View v = listapersonas.getChildAt(i);
-                    v.setBackgroundColor(Color.TRANSPARENT);
-                }
-
-                View v = listapersonas.getChildAt(position);
-                v.setBackgroundColor(Color.YELLOW);
-
-                Toast.makeText(getContext(), "" + position, Toast.LENGTH_SHORT).show();
-                indice = position;
-            }
-        });
+        listapersonas = root.findViewById(R.id.lista);
+        listapersonas.setLayoutManager(new LinearLayoutManager(getContext()));
 
         Button btnRemover = root.findViewById(R.id.btnEliminar);
 
@@ -108,13 +122,30 @@ public class AgendaFragment extends Fragment {
                         if (cantidadEliminada > 0) {
                             lista.remove(indice);
 
-                            CustomAdapter adapter = new CustomAdapter(getContext(), lista);
+                            CustomAdapter adapter = new CustomAdapter(getContext(), listapersonas, lista);
                             listapersonas.setAdapter(adapter);
                             indice = -1;
 
                             Toast.makeText(getContext(), "Eliminado!", Toast.LENGTH_SHORT).show();
                         }
+                    }
 
+                    if (indice >= 0) {
+                        
+                        //int cantidadEliminada = eliminarContactoPorId(getContext(), String.valueOf(lista.get(indice).getId()));
+
+                        // Verificar si se eliminó correctamente
+                        if (deleteContact(getContext(), lista.get(indice).getTelefono(), lista.get(indice).getNombre())) {
+                            lista.remove(indice);
+
+                            CustomAdapter adapter = new CustomAdapter(getContext(), listapersonas, lista);
+                            listapersonas.setAdapter(adapter);
+                            indice = -1;
+
+                            Toast.makeText(getContext(), "Eliminado!", Toast.LENGTH_SHORT).show();
+                        } else{
+                            Toast.makeText(getContext(), "No se eliminó el contacto del tel.", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -133,88 +164,19 @@ public class AgendaFragment extends Fragment {
                 startActivity(intent);
             }
         });
-
-        /*listapersonas.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                // Verificar si el permiso para leer el almacenamiento externo ha sido otorgado
-                /*if (ContextCompat.checkSelfPermission(ActivityLista.this, Manifest.permission.CALL_PHONE)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    // Si el permiso no ha sido otorgado, solicitarlo al usuario en tiempo de ejecución
-                    ActivityCompat.requestPermissions(ActivityLista.this, new String[]{Manifest.permission.CALL_PHONE},
-                            PERMISSIONS_REQUEST_CALL);
-                } else {
-                    if (indice < 0){
-                        Toast.makeText(ActivityLista.this, "Debe seleccionar un elemento!", Toast.LENGTH_SHORT).show();
-                        return false;
-                    }
-
-                    Contacto obj = lista.get(indice);
-
-                    // Crear un objeto Builder para el diálogo
-                    AlertDialog.Builder builder = new AlertDialog.Builder(ActivityLista.this);
-                    builder.setTitle("Acción");
-
-                    // Establecer el mensaje del diálogo
-                    builder.setMessage(String.format("Desea llamar a %s con teléfono : %s", obj.getNombre(), obj.getTelefono()));
-
-                    // Agregar un botón "Aceptar" al diálogo
-                    builder.setPositiveButton("Si", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-
-                            // Crear un objeto Intent con la acción ACTION_CALL
-                            Intent intent = new Intent(Intent.ACTION_CALL);
-
-                            // Establecer el número de teléfono a llamar
-                            String telefono = obj.getTelefono();
-
-                            String str = obj.getPais();
-                            Pattern pattern = Pattern.compile("\\((.*?)\\)"); // expresión regular
-                            Matcher matcher = pattern.matcher(str);
-
-                            Toast.makeText(ActivityLista.this, str, Toast.LENGTH_SHORT).show();
-                            if (matcher.find()) {
-                                str = matcher.group(1);
-                                telefono = str + telefono;
-                            }
-
-                            intent.setData(Uri.parse("tel:" + telefono));
-
-                            // Verificar si la aplicación tiene permiso para realizar llamadas telefónicas
-                            if (ActivityCompat.checkSelfPermission(ActivityLista.this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-                                // Si la aplicación no tiene permiso, solicitar permiso
-                                ActivityCompat.requestPermissions(ActivityLista.this, new String[]{Manifest.permission.CALL_PHONE}, 1);
-                            } else {
-                                // Si la aplicación tiene permiso, iniciar la llamada
-                                startActivity(intent);
-                            }
-                        }
-                    }).setNegativeButton("No", new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            dialog.dismiss();
-                        }
-                    });
-
-                    // Crear el diálogo y mostrarlo
-                    AlertDialog dialog = builder.create();
-                    dialog.show();
-                }
-
-                return false;
-            }
-        });*/
     }
 
-    private void ObtenerListaPersonas() {
+    private ArrayList<Contacto> ObtenerListaPersonas() {
         SQLiteDatabase db = conexion.getReadableDatabase();
 
-        lista = new ArrayList<>();
+        ArrayList<Contacto> lista = new ArrayList<>();
 
         Cursor cursor = db.rawQuery("SELECT * FROM " + Transacciones.tabla_concacto, null);
 
         try {
             while (cursor.moveToNext()) {
                 Contacto obj = new Contacto();
+
                 obj.setId(cursor.getInt(cursor.getColumnIndexOrThrow(Transacciones.id)));
                 obj.setNombre(cursor.getString(cursor.getColumnIndexOrThrow(Transacciones.nombre)));
                 obj.setApellido(cursor.getString(cursor.getColumnIndexOrThrow(Transacciones.apellido)));
@@ -228,11 +190,13 @@ public class AgendaFragment extends Fragment {
             }
         } catch (Exception e) {
             lista.clear();
+            Toast.makeText(getContext(), "Error: no se pude obtener la lista de personas.", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         }
 
         cursor.close();
 
+        return lista;
     }
 
     private ArrayList<Contacto> getContacts() {
@@ -266,14 +230,25 @@ public class AgendaFragment extends Fragment {
                     }
                 }
 
-                Contacto contact = new Contacto();
+                boolean existe = false;
 
-                contact.setId(Integer.valueOf(id));
-                contact.setNombre(name);
-                contact.setTelefono(phoneNumber);
-                contact.setImagen(Utiles.comprimir(photo));
+                for (Contacto elemento : contactList){
+                    if (elemento.getNombre().equals(name)){
+                        existe = true;
+                        break;
+                    }
+                }
 
-                contactList.add(contact);
+                if (!existe) {
+                    Contacto contact = new Contacto();
+                    contact.setId(Integer.valueOf(id));
+                    contact.setNombre(name);
+                    contact.setTelefono(phoneNumber);
+                    contact.setImagen(Utiles.comprimir(photo));
+
+                    contactList.add(contact);
+
+                }
 
             } while (cursor.moveToNext());
         }
@@ -283,6 +258,30 @@ public class AgendaFragment extends Fragment {
         }
 
         return contactList;
+    }
+    
+    public static boolean deleteContact(Context ctx, String phone, String name) {
+        Uri contactUri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phone));
+        Cursor cur = ctx.getContentResolver().query(contactUri, null, null, null, null);
+        try {
+            if (cur.moveToFirst()) {
+                do {
+                    if (cur.getString(cur.getColumnIndexOrThrow(ContactsContract.PhoneLookup.DISPLAY_NAME)).equalsIgnoreCase(name)) {
+                        String lookupKey = cur.getString(cur.getColumnIndexOrThrow(ContactsContract.Contacts.LOOKUP_KEY));
+                        Uri uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, lookupKey);
+                        ctx.getContentResolver().delete(uri, null, null);
+                        return true;
+                    }
+
+                } while (cur.moveToNext());
+            }
+
+        } catch (Exception e) {
+            System.out.println(e.getStackTrace());
+        } finally {
+            cur.close();
+        }
+        return false;
     }
 
     private int eliminarDesdeDB(int id) {

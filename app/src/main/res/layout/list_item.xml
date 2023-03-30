@@ -15,6 +15,7 @@
         app:cardUseCompatPadding="true">
 
         <LinearLayout
+            android:id="@+id/list_item_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -30,7 +31,7 @@
                     android:id="@+id/imgILPhoto"
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    tools:srcCompat="@tools:sample/avatars" />
+                    android:src="@drawable/user_default" />
             </LinearLayout>
 
             <LinearLayout
